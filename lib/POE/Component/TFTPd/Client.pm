@@ -15,19 +15,20 @@ use warnings;
 use POE::Component::TFTPd;
 
 my %defaults = (
-    id          => undef,
-    address     => undef,
-    port        => undef,
-    retries     => 0,
-    timestamp   => 0,
-    last_block  => 0,
-    block_size  => 0,
-    rrq         => 0,
-    wrq         => 0,
-    filename    => q(),
-    mode        => q(),
-    rfc         => [], # remember to override in new!
-    almost_done => 0,
+    id           => undef,
+    address      => undef,
+    port         => undef,
+    retries      => 0,
+    timestamp    => 0,
+    last_block   => 0,
+    block_size   => 0,
+    rrq          => 0,
+    wrq          => 0,
+    filename     => q(),
+    mode         => q(),
+    rfc          => [], # remember to override in new!
+    almost_done  => 0,
+    resent_block => 0,
 );
 
 =head1 METHODS
@@ -77,6 +78,8 @@ sub new {
 =head2 rfc
 
 =head2 almost_done
+
+=head2 resent_block
 
 =cut
 
