@@ -6,7 +6,7 @@ POE::Component::TFTPd - A tftp-server, implemented through POE
 
 =head1 VERSION
 
-0.0301
+0.0302
 
 =head1 SYNOPSIS
 
@@ -28,8 +28,11 @@ POE::Component::TFTPd - A tftp-server, implemented through POE
          },
          tftpd_send    => sub {
              my $client = $_[ARG0];
-             read $client->{'fh'}, my $data, $client->block_size;
-             $_[KERNEL]->post($alias => send_data => $client, $data);
+             if ($client->{'fh'}) {
+                 seek $client->{'fh'}, $client->last_block * $client->block_size, 0;
+                 read $client->{'fh'}, my $data, $client->block_size;
+                 $_[KERNEL]->post($alias => send_data => $client, $data);
+             }
          },
          tftpd_receive => sub {
              my($client, $data) = @_[ARG0,ARG1];
@@ -52,7 +55,7 @@ use strict;
 use POE::Component::TFTPd::Client;
 use POE qw/Wheel::UDP Filter::Stream/;
 
-our $VERSION = eval '0.0301';
+our $VERSION = eval '0.0302';
 our %TFTP_ERROR = (
     not_defined         => [0, "Not defined, see error message"],
     unknown_opcode      => [0, "Unknown opcode: %s"],
@@ -425,13 +428,26 @@ sub get_data {
         $client->last_block ++;
         $self->log(trace => $client, "got $opname $n");
         $kernel->post($self->sender => $sender_state => $client, $data);
+        $client->resent_block = 0;
         $self->cleanup($client) if($done);
     }
     else { # wrong block number
-        $self->log(trace => $client, sprintf(
-            "wrong %s %i (%i)", $opname, $n, $client->last_block + 1,
-        ));
-        $kernel->yield($this_state => $client);
+        # Check if we've already sent block and received an ack
+        # this prevents "Sorcerers Apprentice Syndrome"
+        if (!$client->resent_block) {
+            $self->log(trace => $client, sprintf(
+                "wrong %s %i (%i)", $opname, $n, $client->last_block + 1,
+            ));
+            $client->resent_block = 1;
+            $kernel->post($self->sender => $sender_state => $client, $data);
+        }
+        else {
+            $self->log(trace => $client, sprintf("Duplicate ack (%i, %i) - not responding", $n, $client->last_block + 1));
+
+            # We dont want to talk to the client for this block again so return
+            #$kernel->yield($this_state => $client);
+            return;
+        }
     }
 
     return;
