@@ -107,7 +107,7 @@ sub start { #=================================================================
     my $kernel = $_[KERNEL];
 
     POE::Component::TFTPd->create(
-        localaddr => $localaddr,
+        address   => $localaddr,
         port      => $port,
         alias     => $alias,
     );
